@@ -1,4 +1,3 @@
-
 import os
 import logging
 from telegram import Update
@@ -14,12 +13,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Bot Token from environment variables
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
-# Initialize OpenAI client with explicit base_url as requested
+# Initialize OpenAI client
 client = OpenAI(
-    api_key=OPENAI_API_KEY,
+    api_key=os.getenv("OPENAI_API_KEY", ""),
     base_url="https://api.openai.com/v1"
 )
 
@@ -29,8 +27,8 @@ AI_MODEL = "gpt-4o-mini"
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
-    await update.message.reply_html(
-        f"Hi {user.mention_html()}! I am an AI bot. Send me a message and I will reply."
+    await update.message.reply_text(
+        f"Hi {user.first_name}! I am an AI bot. Send me a message and I will reply."
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -59,22 +57,14 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 def main() -> None:
     """Start the bot."""
-    if not BOT_TOKEN:
-        logger.error("No BOT_TOKEN found in environment variables!")
-        return
-    
-    # Create the Application and pass it your bot's token.
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # On different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
-
-    # On non command i.e. message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
-    # Run the bot until the user presses Ctrl-C or the process receives SIGINT, SIGTERM or SIGABRT
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    print("Bot is running...")
+    application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
