@@ -14,36 +14,39 @@ logger = logging.getLogger(__name__)
 
 # Bot Token from environment variables
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-
-# Define the AI model to use
-AI_MODEL = "gpt-4o-mini"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 def ask_ai(user_message):
-    """Call OpenAI API using requests."""
+    """Call Google Gemini API using requests."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
     headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json"
     }
     data = {
-        "model": AI_MODEL,
-        "messages": [
-            {"role": "system", "content": "You are a helpful AI assistant."},
-            {"role": "user", "content": user_message}
+        "contents": [
+            {
+                "parts": [
+                    {"text": user_message}
+                ]
+            }
         ]
     }
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions",
-        headers=headers,
-        json=data
-    )
+    response = requests.post(url, headers=headers, json=data)
     result = response.json()
-    return result["choices"][0]["message"]["content"]
+    
+    if "candidates" in result:
+        return result["candidates"][0]["content"]["parts"][0]["text"]
+    elif "error" in result:
+        logger.error(f"Gemini API error: {result['error']}")
+        return f"API Error: {result['error'].get('message', 'Unknown error')}"
+    else:
+        logger.error(f"Unexpected response: {result}")
+        return "Sorry, I could not get a response."
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     await update.message.reply_text(
-        f"Hi {user.first_name}! I am an AI bot. Send me a message and I will reply."
+        f"Hi {user.first_name}! I am an AI bot powered by Google Gemini. Send me a message and I will reply."
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -56,7 +59,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         ai_reply = ask_ai(user_message)
         await update.message.reply_text(ai_reply)
-        logger.info(f"AI replied: {ai_reply}")
+        logger.info(f"AI replied: {ai_reply[:100]}...")
     except Exception as e:
         logger.error(f"Error: {e}")
         await update.message.reply_text("Sorry, I encountered an error.")
